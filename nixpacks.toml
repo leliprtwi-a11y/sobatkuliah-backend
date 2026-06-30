@@ -1,0 +1,6 @@
+# Railway/Nixpacks build config.
+# composer.lock di-generate dengan PHP 8.4.14 di laptop, dan beberapa
+# package (symfony/clock dkk) butuh PHP >=8.4.1. Railway default pakai
+# PHP 8.3, jadi kita paksa pakai 8.4 di sini supaya cocok dengan lock file.
+[phases.setup]
+nixPkgs = ["php84", "php84Packages.composer"]
