@@ -7,12 +7,26 @@ use Illuminate\Http\Request;
 
 class ScheduleController extends Controller
 {
+    public function index(Request $request)
+    {
+        $schedules = Schedule::where('firebase_uid', $request->input('firebase_uid'))->get();
+        return response()->json($schedules);
+    }
+
+    public function show(Request $request, string $id)
+    {
+        $schedule = Schedule::where('id', $id)
+                             ->where('firebase_uid', $request->input('firebase_uid'))
+                             ->firstOrFail();
+        return response()->json($schedule);
+    }
+
     public function upsert(Request $request)
     {
         $uid = $request->input('firebase_uid');
 
-        Schedule::updateOrCreate(
-            ['id' => $request->id],
+        $schedule = Schedule::updateOrCreate(
+            ['id' => $request->id, 'firebase_uid' => $uid],
             [
                 'firebase_uid' => $uid,
                 'course_id'    => $request->course_id,
@@ -23,7 +37,7 @@ class ScheduleController extends Controller
             ]
         );
 
-        return response()->json(['status' => 'ok']);
+        return response()->json($schedule);
     }
 
     public function destroy(Request $request, string $id)

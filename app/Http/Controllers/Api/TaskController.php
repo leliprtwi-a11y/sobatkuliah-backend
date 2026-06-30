@@ -7,12 +7,26 @@ use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    public function index(Request $request)
+    {
+        $tasks = Task::where('firebase_uid', $request->input('firebase_uid'))->get();
+        return response()->json($tasks);
+    }
+
+    public function show(Request $request, string $id)
+    {
+        $task = Task::where('id', $id)
+                     ->where('firebase_uid', $request->input('firebase_uid'))
+                     ->firstOrFail();
+        return response()->json($task);
+    }
+
     public function upsert(Request $request)
     {
         $uid = $request->input('firebase_uid');
 
-        Task::updateOrCreate(
-            ['id' => $request->id],
+        $task = Task::updateOrCreate(
+            ['id' => $request->id, 'firebase_uid' => $uid],
             [
                 'firebase_uid' => $uid,
                 'course_id'    => $request->course_id,
@@ -24,7 +38,7 @@ class TaskController extends Controller
             ]
         );
 
-        return response()->json(['status' => 'ok']);
+        return response()->json($task);
     }
 
     public function destroy(Request $request, string $id)

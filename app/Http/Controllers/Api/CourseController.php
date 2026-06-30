@@ -7,12 +7,26 @@ use Illuminate\Http\Request;
 
 class CourseController extends Controller
 {
+    public function index(Request $request)
+    {
+        $courses = Course::where('firebase_uid', $request->input('firebase_uid'))->get();
+        return response()->json($courses);
+    }
+
+    public function show(Request $request, string $id)
+    {
+        $course = Course::where('id', $id)
+                         ->where('firebase_uid', $request->input('firebase_uid'))
+                         ->firstOrFail();
+        return response()->json($course);
+    }
+
     public function upsert(Request $request)
     {
         $uid = $request->input('firebase_uid');
 
-        Course::updateOrCreate(
-            ['id' => $request->id],
+        $course = Course::updateOrCreate(
+            ['id' => $request->id, 'firebase_uid' => $uid], // ikut cek kepemilikan
             [
                 'firebase_uid' => $uid,
                 'name'         => $request->name,
@@ -21,7 +35,7 @@ class CourseController extends Controller
             ]
         );
 
-        return response()->json(['status' => 'ok']);
+        return response()->json($course);
     }
 
     public function destroy(Request $request, string $id)
