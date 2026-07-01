@@ -26,7 +26,7 @@ class CourseController extends Controller
         $uid = $request->input('firebase_uid');
 
         $course = Course::updateOrCreate(
-            ['id' => $request->id, 'firebase_uid' => $uid], // ikut cek kepemilikan
+            ['id' => $request->id],
             [
                 'firebase_uid' => $uid,
                 'name'         => $request->name,

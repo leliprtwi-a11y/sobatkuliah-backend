@@ -25,8 +25,20 @@ class TaskController extends Controller
     {
         $uid = $request->input('firebase_uid');
 
+        if (!$request->id) {
+            return response()->json(['error' => 'id wajib diisi'], 422);
+        }
+
+        // Pastikan course milik user ini ada di server dulu
+        $courseExists = \App\Models\Course::where('id', $request->course_id)
+                                       ->where('firebase_uid', $uid)
+                                       ->exists();
+        if (!$courseExists) {
+            return response()->json(['error' => 'course tidak ditemukan'], 422);
+        }
+
         $task = Task::updateOrCreate(
-            ['id' => $request->id, 'firebase_uid' => $uid],
+            ['id' => $request->id],
             [
                 'firebase_uid' => $uid,
                 'course_id'    => $request->course_id,
