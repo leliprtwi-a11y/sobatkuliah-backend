@@ -10,33 +10,31 @@ use Illuminate\Support\Facades\Log;
 class SendTaskReminders extends Command
 {
     protected $signature   = 'reminders:tasks';
-    protected $description = 'Kirim notifikasi H-1 untuk tugas yang deadline besok';
+    protected $description = 'Kirim notifikasi H-1 tepat di jam deadline tugas';
 
     public function handle(FcmService $fcm): int
     {
-        $tomorrow    = Carbon::tomorrow()->setTimezone('Asia/Jakarta');
-        $startOfDay  = $tomorrow->copy()->startOfDay();
-        $endOfDay    = $tomorrow->copy()->endOfDay();
+        $now = Carbon::now();
 
-        $this->info("Mencari tugas deadline: {$startOfDay} – {$endOfDay}");
+        // Cari task yang (deadline - 1 hari) jatuh persis di menit ini.
+        // Ini otomatis menghormati jam deadline masing-masing task,
+        // tidak lagi jam fixed.
+        $targetStart = $now->copy()->addDay()->startOfMinute();
+        $targetEnd   = $now->copy()->addDay()->endOfMinute();
 
-        // Ambil semua tugas yang deadline besok & belum selesai,
-        // beserta data user (untuk FCM token)
         $tasks = Task::with('user')
-            ->whereBetween('deadline', [$startOfDay, $endOfDay])
+            ->whereBetween('deadline', [$targetStart, $targetEnd])
             ->where('is_done', false)
             ->get();
 
-        $this->info("Ditemukan {$tasks->count()} tugas");
+        if ($tasks->isEmpty()) {
+            return Command::SUCCESS; // sunyi, biar log tidak penuh (jalan tiap menit)
+        }
 
         $sent = 0;
         foreach ($tasks as $task) {
             $user = $task->user;
-
-            if (!$user || !$user->fcm_token) {
-                $this->warn("  Skip task {$task->id}: user tidak punya FCM token");
-                continue;
-            }
+            if (!$user || !$user->fcm_token) continue;
 
             $priorityLabel = match ($task->priority) {
                 3       => '🔴 Tinggi',
@@ -45,7 +43,7 @@ class SendTaskReminders extends Command
             };
 
             $deadlineFormatted = Carbon::parse($task->deadline)
-                ->setTimezone('Asia/Makassar')
+                ->setTimezone('Asia/Jakarta')
                 ->isoFormat('D MMM, HH:mm');
 
             $success = $fcm->sendToDevice(
@@ -59,17 +57,10 @@ class SendTaskReminders extends Command
                 ]
             );
 
-            if ($success) {
-                $sent++;
-                $this->line("  ✅ Sent: {$task->title} → {$user->firebase_uid}");
-            } else {
-                $this->error("  ❌ Failed: {$task->title}");
-            }
+            if ($success) $sent++;
         }
 
-        $this->info("Selesai. Berhasil kirim: {$sent}/{$tasks->count()}");
         Log::info("[reminders:tasks] Sent {$sent}/{$tasks->count()} reminders");
-
         return Command::SUCCESS;
     }
 }
