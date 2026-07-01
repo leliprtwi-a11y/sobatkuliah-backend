@@ -1,14 +1,16 @@
 <?php
 use Illuminate\Support\Facades\Schedule;
 
+// Tugas: cek TIAP MENIT karena jam kirimnya mengikuti jam deadline
+// masing-masing task (bukan jam fixed)
 Schedule::command('reminders:tasks')
-    ->dailyAt('12:00')
-    ->timezone('UTC')
+    ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
 
+// Jadwal kuliah: fixed jam 21:00 WIB
 Schedule::command('reminders:schedules')
-    ->dailyAt('12:30')
-    ->timezone('UTC')
+    ->dailyAt('21:00')
+    ->timezone('Asia/Jakarta')
     ->withoutOverlapping()
     ->runInBackground();
