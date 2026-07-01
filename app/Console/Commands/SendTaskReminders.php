@@ -10,31 +10,50 @@ use Illuminate\Support\Facades\Log;
 class SendTaskReminders extends Command
 {
     protected $signature   = 'reminders:tasks';
-    protected $description = 'Kirim notifikasi H-1 untuk tugas yang deadline besok';
+    protected $description = 'Kirim notifikasi H-1 untuk tugas yang deadline besok (di jam yang sama dengan deadline)';
 
     public function handle(FcmService $fcm): int
     {
-        $tomorrow    = Carbon::tomorrow()->setTimezone('Asia/Makassar'); // WIB: Asia/Jakarta
-        $startOfDay  = $tomorrow->copy()->startOfDay();
-        $endOfDay    = $tomorrow->copy()->endOfDay();
+        // Waktu sekarang dalam WIB
+        $nowWib = Carbon::now('Asia/Jakarta');
 
-        $this->info("Mencari tugas deadline: {$startOfDay} – {$endOfDay}");
+        // H-1: besok dalam WIB
+        $tomorrowWib = $nowWib->copy()->addDay();
 
-        // Ambil semua tugas yang deadline besok & belum selesai,
-        // beserta data user (untuk FCM token)
+        // Cari task yang:
+        // - deadline-nya besok (tanggal WIB)
+        // - jam deadline == jam sekarang WIB (H:i)
+        // - belum selesai
+        $currentHour   = $nowWib->format('H');
+        $currentMinute = $nowWib->format('i');
+
+        $this->info("Cek reminders:tasks — sekarang {$nowWib->format('Y-m-d H:i')} WIB");
+
+        // Ambil semua task deadline besok yang belum selesai
+        $tomorrowDate = $tomorrowWib->toDateString(); // "2025-07-02"
+
         $tasks = Task::with('user')
-            ->whereBetween('deadline', [$startOfDay, $endOfDay])
             ->where('is_done', false)
+            ->whereRaw("DATE(CONVERT_TZ(deadline, '+00:00', '+07:00')) = ?", [$tomorrowDate])
             ->get();
 
-        $this->info("Ditemukan {$tasks->count()} tugas");
+        $this->info("Task deadline besok ({$tomorrowDate}): {$tasks->count()} task");
 
         $sent = 0;
         foreach ($tasks as $task) {
-            $user = $task->user;
+            // Konversi deadline task ke WIB
+            $deadlineWib = Carbon::parse($task->deadline)->setTimezone('Asia/Jakarta');
 
+            // Kirim notifikasi hanya jika jam & menit deadline == sekarang
+            // (scheduler jalan tiap menit, jadi ini akan match tepat 1x)
+            if ($deadlineWib->format('H') !== $currentHour ||
+                $deadlineWib->format('i') !== $currentMinute) {
+                continue;
+            }
+
+            $user = $task->user;
             if (!$user || !$user->fcm_token) {
-                $this->warn("  Skip task {$task->id}: user tidak punya FCM token");
+                $this->warn("  Skip task {$task->id}: tidak ada FCM token");
                 continue;
             }
 
@@ -44,31 +63,29 @@ class SendTaskReminders extends Command
                 default => '🟢 Rendah',
             };
 
-            $deadlineFormatted = Carbon::parse($task->deadline)
-                ->setTimezone('Asia/Makassar')
-                ->isoFormat('D MMM, HH:mm');
+            $deadlineFormatted = $deadlineWib->isoFormat('D MMM, HH:mm');
 
             $success = $fcm->sendToDevice(
                 fcmToken: $user->fcm_token,
-                title:    "⏰ Tugas Jatuh Tempo Besok!",
-                body:     "{$task->title} — deadline {$deadlineFormatted} ({$priorityLabel})",
+                title:    '⏰ Tugas Jatuh Tempo Besok!',
+                body:     "{$task->title} — deadline {$deadlineFormatted} WIB ({$priorityLabel})",
                 data:     [
                     'type'      => 'task_reminder',
-                    'task_id'   => $task->id,
+                    'task_id'   => (string) $task->id,
                     'channelId' => 'sobatkuliah_task',
                 ]
             );
 
             if ($success) {
                 $sent++;
-                $this->line("  ✅ Sent: {$task->title} → {$user->firebase_uid}");
+                $this->line("  ✅ Sent: {$task->title} → {$user->firebase_uid} (deadline {$deadlineFormatted})");
             } else {
                 $this->error("  ❌ Failed: {$task->title}");
             }
         }
 
-        $this->info("Selesai. Berhasil kirim: {$sent}/{$tasks->count()}");
-        Log::info("[reminders:tasks] Sent {$sent}/{$tasks->count()} reminders");
+        $this->info("Selesai. Terkirim: {$sent} notifikasi task");
+        Log::info("[reminders:tasks] {$nowWib->format('H:i')} WIB — Sent {$sent} task reminders");
 
         return Command::SUCCESS;
     }
