@@ -29,7 +29,6 @@ class TaskController extends Controller
             return response()->json(['error' => 'id wajib diisi'], 422);
         }
 
-        // Pastikan course milik user ini ada di server dulu
         $courseExists = \App\Models\Course::where('id', $request->course_id)
                                        ->where('firebase_uid', $uid)
                                        ->exists();
@@ -47,11 +46,12 @@ class TaskController extends Controller
                 'deadline'     => $request->deadline,
                 'priority'     => $request->priority ?? 2,
                 'is_done'      => $request->is_done ?? false,
+                'notify_time'  => $request->notify_time, // "07:00" atau null
             ]
         );
 
         return response()->json($task);
-    }
+    }   
 
     public function destroy(Request $request, string $id)
     {

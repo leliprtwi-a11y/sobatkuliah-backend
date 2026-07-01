@@ -9,7 +9,7 @@ class Task extends Model
     protected $keyType   = 'string';
     protected $fillable  = [
         'id', 'firebase_uid', 'course_id', 'title',
-        'description', 'deadline', 'priority', 'is_done',
+        'description', 'deadline', 'priority', 'is_done', 'notify_time',
     ];
     protected $casts = [
         'deadline' => 'datetime',

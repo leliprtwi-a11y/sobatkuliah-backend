@@ -4,6 +4,7 @@ return [
     'firebase' => [
         'project_id'  => env('FIREBASE_PROJECT_ID', 'kampusku-64943'),
         'credentials' => env('FIREBASE_CREDENTIALS', 'storage/app/firebase/kampusku-service-account.json'),
+        'service_account_json' => env('FIREBASE_SERVICE_ACCOUNT_JSON'),
     ],
 
     'postmark' => [
