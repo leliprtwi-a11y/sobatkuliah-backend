@@ -10,11 +10,13 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule) {
-        $schedule->command('notifications:send')
-             ->everyMinute()
-             ->timezone('Asia/Jakarta');
-    })
+    // Schedule 'notifications:send' (SendDeadlineReminders) dihapus dari sini.
+    // Command itu sudah tidak ada lagi (duplikat dari reminders:tasks +
+    // reminders:schedules yang sekarang didaftarkan di routes/console.php).
+    // Jangan tambahkan withSchedule() lagi di sini kalau schedule sudah
+    // didefinisikan di routes/console.php — pakai satu tempat saja supaya
+    // tidak ada schedule yang terdaftar dobel tanpa disadari lagi seperti
+    // kasus ini.
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'firebase.auth' => \App\Http\Middleware\FirebaseAuthMiddleware::class,
