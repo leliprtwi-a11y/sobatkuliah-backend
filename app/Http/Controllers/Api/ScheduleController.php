@@ -9,21 +9,22 @@ class ScheduleController extends Controller
 {
     public function index(Request $request)
     {
-        $schedules = Schedule::where('firebase_uid', $request->input('firebase_uid'))->get();
+        // Pakai UID hasil verifikasi middleware, bukan input body.
+        $schedules = Schedule::where('firebase_uid', $request->firebase_uid)->get();
         return response()->json($schedules);
     }
 
     public function show(Request $request, string $id)
     {
         $schedule = Schedule::where('id', $id)
-                             ->where('firebase_uid', $request->input('firebase_uid'))
+                             ->where('firebase_uid', $request->firebase_uid)
                              ->firstOrFail();
         return response()->json($schedule);
     }
 
     public function upsert(Request $request)
     {
-        $uid = $request->input('firebase_uid');
+        $uid = $request->firebase_uid;
 
         if (!$request->id) {
             return response()->json(['error' => 'id wajib diisi'], 422);
@@ -35,6 +36,12 @@ class ScheduleController extends Controller
                                        ->exists();
         if (!$courseExists) {
             return response()->json(['error' => 'course tidak ditemukan'], 422);
+        }
+
+        // Cegah user meng-update record milik user lain lewat id yang ditebak
+        $existing = Schedule::find($request->id);
+        if ($existing && $existing->firebase_uid !== $uid) {
+            return response()->json(['error' => 'tidak diizinkan'], 403);
         }
 
         $schedule = Schedule::updateOrCreate(
@@ -55,7 +62,7 @@ class ScheduleController extends Controller
     public function destroy(Request $request, string $id)
     {
         Schedule::where('id', $id)
-                ->where('firebase_uid', $request->input('firebase_uid'))
+                ->where('firebase_uid', $request->firebase_uid)
                 ->delete();
 
         return response()->json(['status' => 'ok']);

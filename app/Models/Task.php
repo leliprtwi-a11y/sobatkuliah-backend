@@ -10,10 +10,12 @@ class Task extends Model
     protected $fillable  = [
         'id', 'firebase_uid', 'course_id', 'title',
         'description', 'deadline', 'priority', 'is_done', 'notify_time',
+        'reminder_sent_at',
     ];
     protected $casts = [
-        'deadline' => 'datetime',
-        'is_done'  => 'boolean',
+        'deadline'         => 'datetime',
+        'is_done'          => 'boolean',
+        'reminder_sent_at' => 'datetime',
     ];
 
     public function user()

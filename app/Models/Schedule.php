@@ -10,6 +10,10 @@ class Schedule extends Model
     protected $fillable  = [
         'id', 'firebase_uid', 'course_id',
         'day_of_week', 'start_time', 'end_time', 'room',
+        'last_reminder_sent_date',
+    ];
+    protected $casts = [
+        'last_reminder_sent_date' => 'date',
     ];
 
     public function user()

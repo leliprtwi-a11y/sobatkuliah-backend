@@ -1,12 +1,12 @@
 #!/bin/bash
+set -e
 
-# Jalankan scheduler Laravel setiap menit di background
 while true; do
+  start_ts=$(date +%s)
   php artisan schedule:run --no-interaction >> storage/logs/scheduler.log 2>&1
-  sleep 60
+  elapsed=$(( $(date +%s) - start_ts ))
+  sleep_for=$(( 60 - elapsed ))
+  if [ $sleep_for -gt 0 ]; then sleep $sleep_for; else sleep 1; fi
 done &
 
-echo "[start.sh] Scheduler berjalan di background (PID $!)"
-
-# Jalankan web server di foreground (Railway butuh proses foreground)
-exec php artisan serve --host=0.0.0.0 --port=${PORT:-8000}
+php artisan serve --host=0.0.0.0 --port="${PORT:-8000}"

@@ -21,17 +21,24 @@ class SendScheduleReminders extends Command
 
     public function handle(FcmService $fcm): int
     {
-        // PHP: dayOfWeek 1=Monday…7=Sunday → cocok dengan Flutter (1=Senin…7=Minggu)
         $tomorrowDayOfWeek = Carbon::tomorrow()->dayOfWeekIso; // 1–7
+        $today = Carbon::today()->toDateString();
 
         $this->info("Mencari jadwal hari: {$this->dayNames[$tomorrowDayOfWeek]}");
 
-        // Ambil semua jadwal untuk hari besok + user yang punya FCM token
+        // Ambil jadwal untuk hari besok, TAPI skip yang sudah dikirim hari
+        // ini (last_reminder_sent_date = hari ini). Ini mencegah user
+        // menerima notifikasi jadwal berkali-kali kalau command ini
+        // ke-trigger lebih dari sekali dalam hari yang sama.
         $schedules = Schedule::with(['user', 'course'])
             ->where('day_of_week', $tomorrowDayOfWeek)
+            ->where(function ($q) use ($today) {
+                $q->whereNull('last_reminder_sent_date')
+                  ->orWhere('last_reminder_sent_date', '!=', $today);
+            })
             ->get();
 
-        $this->info("Ditemukan {$schedules->count()} jadwal");
+        $this->info("Ditemukan {$schedules->count()} jadwal yang perlu dinotif");
 
         $sent = 0;
         foreach ($schedules as $schedule) {
@@ -58,6 +65,7 @@ class SendScheduleReminders extends Command
 
             if ($success) {
                 $sent++;
+                $schedule->update(['last_reminder_sent_date' => $today]);
                 $this->line("  ✅ Sent: {$courseName} → {$user->firebase_uid}");
             } else {
                 $this->error("  ❌ Failed: {$courseName}");

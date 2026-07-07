@@ -9,21 +9,26 @@ class CourseController extends Controller
 {
     public function index(Request $request)
     {
-        $courses = Course::where('firebase_uid', $request->input('firebase_uid'))->get();
+        $courses = Course::where('firebase_uid', $request->firebase_uid)->get();
         return response()->json($courses);
     }
 
     public function show(Request $request, string $id)
     {
         $course = Course::where('id', $id)
-                         ->where('firebase_uid', $request->input('firebase_uid'))
+                         ->where('firebase_uid', $request->firebase_uid)
                          ->firstOrFail();
         return response()->json($course);
     }
 
     public function upsert(Request $request)
     {
-        $uid = $request->input('firebase_uid');
+        $uid = $request->firebase_uid;
+
+        $existing = Course::find($request->id);
+        if ($existing && $existing->firebase_uid !== $uid) {
+            return response()->json(['error' => 'tidak diizinkan'], 403);
+        }
 
         $course = Course::updateOrCreate(
             ['id' => $request->id],
@@ -41,7 +46,7 @@ class CourseController extends Controller
     public function destroy(Request $request, string $id)
     {
         Course::where('id', $id)
-              ->where('firebase_uid', $request->input('firebase_uid'))
+              ->where('firebase_uid', $request->firebase_uid)
               ->delete();
 
         return response()->json(['status' => 'ok']);

@@ -9,12 +9,20 @@ class FcmTokenController extends Controller
 {
     public function store(Request $request)
     {
-        $uid   = $request->input('firebase_uid');
+        $request->validate([
+            'token' => 'required|string|max:255',
+        ]);
+
+        // PENTING: pakai firebase_uid hasil verifikasi token di
+        // FirebaseAuthMiddleware (di-set via $request->merge di sana),
+        // JANGAN pakai $request->input('firebase_uid') dari body.
+        // Kalau pakai body, siapapun yang login bisa kirim uid orang lain
+        // dan menimpa fcm_token milik user lain (IDOR).
+        $uid   = $request->firebase_uid;
         $token = $request->input('token');
 
-        User::where('firebase_uid', $uid)
-            ->update(['fcm_token' => $token]);
+        $updated = User::where('firebase_uid', $uid)->update(['fcm_token' => $token]);
 
-        return response()->json(['status' => 'ok']);
+        return response()->json(['status' => 'ok', 'updated' => (bool) $updated]);
     }
 }
