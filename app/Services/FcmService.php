@@ -34,7 +34,13 @@ class FcmService
                         'title' => $title,
                         'body'  => $body,
                     ],
-                    'data'         => array_map('strval', $data),
+                    // PENTING: cast ke (object). Kalau $data kosong ([]),
+                    // array_map('strval', []) tetap [] dan di-encode PHP
+                    // sebagai JSON array []. FCM MEWAJIBKAN field 'data'
+                    // berupa objek/map ({}), bukan array — request akan
+                    // ditolak Google dengan error "Cannot bind a list to
+                    // map for field 'data'" kalau tidak di-cast begini.
+                    'data'         => (object) array_map('strval', $data),
                     'android'      => [
                         'priority'     => 'high',
                         'notification' => [
