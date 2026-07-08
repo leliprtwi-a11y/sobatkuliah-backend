@@ -3,18 +3,16 @@
 namespace App\Services;
 
 use Google\Auth\Credentials\ServiceAccountCredentials;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class FcmService
 {
     private string $projectId;
-    private string $credentialsPath;
 
     public function __construct()
     {
-        $this->projectId       = config('services.firebase.project_id');
-        $this->credentialsPath = base_path(config('services.firebase.credentials'));
+        $this->projectId = config('services.firebase.project_id');
     }
 
     /**
@@ -58,7 +56,7 @@ class FcmService
 
             $url = "https://fcm.googleapis.com/v1/projects/{$this->projectId}/messages:send";
 
-            $response = Http::withToken($accessToken)
+            $response = \Illuminate\Support\Facades\Http::withToken($accessToken)
                             ->post($url, $payload);
 
             if ($response->successful()) {
@@ -76,15 +74,36 @@ class FcmService
     }
 
     /**
-     * Generate OAuth2 access token dari service account JSON
+     * Generate OAuth2 access token dari service account JSON.
+     *
+     * PENTING: kredensial diambil dari env var FIREBASE_SERVICE_ACCOUNT_JSON
+     * (isi JSON-nya langsung, BUKAN path ke file). Ini karena file
+     * kredensial sengaja tidak disimpan di disk container (isinya
+     * private key rahasia, tidak boleh ikut ter-commit ke Git). Kalau
+     * suatu saat mau pindah ke penyimpanan file, pastikan file itu
+     * benar-benar ter-deploy ke server dan path-nya valid.
      */
     private function getAccessToken(): string
     {
-        $scopes      = ['https://www.googleapis.com/auth/firebase.messaging'];
-        $credentials = new ServiceAccountCredentials(
-            $scopes,
-            $this->credentialsPath
-        );
+        $scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
+
+        $serviceAccountJson = config('services.firebase.service_account_json');
+        if (!$serviceAccountJson) {
+            throw new RuntimeException(
+                'FIREBASE_SERVICE_ACCOUNT_JSON belum diset di environment variables.'
+            );
+        }
+
+        $jsonKey = json_decode($serviceAccountJson, true);
+        if (!is_array($jsonKey)) {
+            throw new RuntimeException(
+                'FIREBASE_SERVICE_ACCOUNT_JSON tidak valid (gagal di-parse sebagai JSON).'
+            );
+        }
+
+        // ServiceAccountCredentials menerima array kredensial langsung,
+        // tidak harus path file.
+        $credentials = new ServiceAccountCredentials($scopes, $jsonKey);
 
         $token = $credentials->fetchAuthToken();
         return $token['access_token'];
